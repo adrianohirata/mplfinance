@@ -238,24 +238,45 @@ def _alines_validator(value, returnStandardizedValue=False):
         else:
             return False
 
+
     if not isinstance(value,(list,tuple)):
         return False if not returnStandardizedValue else None
 
     if not all([isinstance(line,(list,tuple)) and len(line) > 1 for line in value]):
         return False if not returnStandardizedValue else None
 
-    # now, were the above really `lines`, or were they simply `vertices`
-    if all( [ isinstance(point,(list,tuple)) and len(point)==2 and
-              _is_datelike(point[0]) and isinstance(point[1],(float,int))
-              for line in value for point in line ] ):
-        # they were lines:
-        return True if not returnStandardizedValue else value
+    # helper: determine if an object is a valid point (date,price)
+    def _is_point(obj):
+        return (isinstance(obj,(list,tuple)) and len(obj) == 2 and _is_datelike(obj[0]) and isinstance(obj[1],(float,int)))
 
-    # here, if valid, we have a sequence of vertices (points)
-    if all( [ isinstance(point,(list,tuple)) and len(point)==2 and
-              _is_datelike(point[0]) and isinstance(point[1],(float,int))
-              for point in value ] ):
+    # now check if value is a sequence of lines where each line may optionally
+    # include a trailing color specification. If so, strip the color for
+    # standardization when requested.
+    all_lines_ok = True
+    found_embedded_color = False
+    standardized_lines = []
+    for line in value:
+        if all([_is_point(pt) for pt in line]):
+            standardized_lines.append(list(line))
+        elif len(line) >= 3 and all([_is_point(pt) for pt in line[:-1]]) and _mpf_is_color_like(line[-1]):
+            # last element is a color-like value -> accept and strip for standardization
+            found_embedded_color = True
+            standardized_lines.append(list(line[:-1]))
+        else:
+            all_lines_ok = False
+            break
+
+    if all_lines_ok:
+        return True if not returnStandardizedValue else standardized_lines
+
+    # here, maybe value itself is a flat sequence of vertices (points), possibly with a trailing color
+    if all([_is_point(point) for point in value]):
         return True if not returnStandardizedValue else [value,]
+    if len(value) >= 3 and all([_is_point(point) for point in value[:-1]]) and _mpf_is_color_like(value[-1]):
+        # single line with embedded color
+        return True if not returnStandardizedValue else [list(value[:-1]),]
+
+    return False if not returnStandardizedValue else None
 
     return False if not returnStandardizedValue else None
 

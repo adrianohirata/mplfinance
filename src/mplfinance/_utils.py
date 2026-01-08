@@ -17,7 +17,7 @@ from mplfinance._arg_validators import _process_kwargs, _validate_vkwargs_dict
 from mplfinance._arg_validators import _alines_validator, _bypass_kwarg_validation
 from mplfinance._arg_validators import _xlim_validator, _is_datelike
 from mplfinance._styles         import _get_mpfstyle
-from mplfinance._helpers        import _mpf_to_rgba
+from mplfinance._helpers        import _mpf_to_rgba, _mpf_is_color_like
 
 from six.moves import zip
 
@@ -1001,6 +1001,35 @@ def _construct_aline_collections(alines, dtix=None):
     else:
         aconfig = _process_kwargs({}, _valid_lines_kwargs())
 
+    # allow each `line` element to optionally include a color as its last item:
+    #   e.g. [(dt0,price0),(dt1,price1),'r']  or  [[(dt0,p0),(dt1,p1),'r'], [(dt2,p2),(dt3,p3),'b']]
+    embedded_colors = None
+    if isinstance(alines,(list,tuple)):
+        # single-segment-with-color: a sequence of points followed by a color
+        def _is_point(x):
+            return (isinstance(x,(list,tuple)) and len(x)==2 and _is_datelike(x[0]) and isinstance(x[1],(float,int)))
+
+        # detect single-line-with-embedded-color: first N-1 items are points and last item is color-like
+        if len(alines) >= 3 and all([_is_point(pt) for pt in alines[:-1]]) and _mpf_is_color_like(alines[-1]):
+            embedded_colors = [alines[-1]]
+            alines = [list(alines[:-1])]
+        else:
+            # treat as a list of lines; check each line for an embedded color
+            new_alines = []
+            colors_for_lines = []
+            found = False
+            for line in alines:
+                if isinstance(line,(list,tuple)) and len(line) >= 3 and all([_is_point(pt) for pt in line[:-1]]) and _mpf_is_color_like(line[-1]):
+                    found = True
+                    colors_for_lines.append(line[-1])
+                    new_alines.append(list(line[:-1]))
+                else:
+                    new_alines.append(line)
+                    colors_for_lines.append(None)
+            if found:
+                embedded_colors = colors_for_lines
+                alines = new_alines
+
     alines = _alines_validator(alines, returnStandardizedValue=True)
     if alines is None:
         raise ValueError('Unable to standardize alines value: '+str(alines))
@@ -1011,6 +1040,26 @@ def _construct_aline_collections(alines, dtix=None):
     co = aconfig['colors']
     ls = aconfig['linestyle']
     al = aconfig['alpha']
+
+    # if user embedded colors inside individual `line` entries, prefer those
+    if embedded_colors is not None:
+        if isinstance(embedded_colors,list) and len(embedded_colors) == 1:
+            # single-segment-with-color -> use that color
+            co = embedded_colors[0]
+        else:
+            # embedded_colors is a list with possible None entries
+            fallback = co
+            final_co = []
+            for i,ec in enumerate(embedded_colors):
+                if ec is None:
+                    if isinstance(fallback,(list,tuple)) and len(fallback) == len(embedded_colors):
+                        final_co.append(fallback[i])
+                    else:
+                        final_co.append(fallback)
+                else:
+                    final_co.append(ec)
+            co = final_co
+
     lcollection = LineCollection(alines,colors=co,linewidths=lw,linestyles=ls,antialiaseds=(0,),alpha=al)
     return lcollection
 

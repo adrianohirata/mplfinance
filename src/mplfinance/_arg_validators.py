@@ -495,3 +495,20 @@ def _fill_between_validator(value):
     if _list_of_dict(value):
         return all([_valid_fb_dict(v) for v in value])
     return False
+
+def _xticks_validator(value):
+    """
+    Validate xticks parameter.
+    Valid values:
+      - int: number of evenly-spaced ticks
+      - list/tuple of ints: specific indices for ticks
+      - 'all': tick at every data point
+      - 'monthly' or 'months': tick at each month boundary
+    """
+    if isinstance(value, int) and value > 0:
+        return True
+    if isinstance(value, str) and value.lower() in ('all', 'monthly', 'months'):
+        return True
+    if isinstance(value, (list, tuple)):
+        return all(isinstance(v, (int, np.integer)) for v in value)
+    return False

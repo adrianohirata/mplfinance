@@ -218,12 +218,16 @@ Returns
     return panels
     
 
-def _set_ticks_on_bottom_panel_only(panels,formatter,rotation=45,xlabel=None):
+def _set_ticks_on_bottom_panel_only(panels,formatter,rotation=45,xlabel=None,xtick_positions=None):
 
     bot = panels.index.values[-1]
     ax  = panels.at[bot,'axes'][0]
     ax.tick_params(axis='x',rotation=rotation)
     ax.xaxis.set_major_formatter(formatter)
+
+    # Set custom tick positions if provided
+    if xtick_positions is not None:
+        ax.set_xticks(xtick_positions)
 
     if xlabel is not None:
         ax.set_xlabel(xlabel)

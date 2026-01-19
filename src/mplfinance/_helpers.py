@@ -70,6 +70,72 @@ def _list_of_dict(x):
     '''
     return isinstance(x,list) and all([isinstance(item,dict) for item in x])
 
+def _compute_monthly_xticks(dates):
+    """
+    Given an array of matplotlib date numbers, compute the indices
+    where each new month begins. Returns a list of integer indices.
+    """
+    if len(dates) == 0:
+        return []
+
+    tick_indices = []
+    prev_month = None
+    prev_year = None
+
+    for i, d in enumerate(dates):
+        dt = mdates.num2date(d)
+        current_month = dt.month
+        current_year = dt.year
+        if current_month != prev_month or current_year != prev_year:
+            tick_indices.append(i)
+            prev_month = current_month
+            prev_year = current_year
+
+    return tick_indices
+
+def _compute_xtick_positions(xticks, dates, xdates):
+    """
+    Compute the actual tick positions based on the xticks parameter.
+
+    Parameters:
+      xticks: int, list, 'all', 'monthly', or 'months'
+      dates: array of matplotlib date numbers (for computing monthly boundaries)
+      xdates: the x-axis values (integers when show_nontrading=False, else dates)
+
+    Returns:
+      list of tick positions, or None to use matplotlib's default
+    """
+    if xticks is None:
+        return None
+
+    n = len(xdates)
+    if n == 0:
+        return None
+
+    if isinstance(xticks, str):
+        xticks_lower = xticks.lower()
+        if xticks_lower == 'all':
+            return list(range(n))
+        elif xticks_lower in ('monthly', 'months'):
+            return _compute_monthly_xticks(dates)
+
+    if isinstance(xticks, int):
+        # Evenly spaced ticks
+        if xticks >= n:
+            return list(range(n))
+        step = max(1, (n - 1) // (xticks - 1)) if xticks > 1 else n
+        positions = list(range(0, n, step))
+        # Ensure last point is included
+        if positions[-1] != n - 1:
+            positions.append(n - 1)
+        return positions
+
+    if isinstance(xticks, (list, tuple)):
+        # User-specified indices, filter to valid range
+        return [int(i) for i in xticks if 0 <= i < n]
+
+    return None
+
 def _num_or_seq_of_num(value):
     return ( isinstance(value,(int,float,np.integer,np.floating))  or
              (isinstance(value,(list,tuple,np.ndarray)) and

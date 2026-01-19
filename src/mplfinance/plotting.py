@@ -41,6 +41,7 @@ from mplfinance._arg_validators import _alines_validator, _tlines_validator
 from mplfinance._arg_validators import _scale_padding_validator, _yscale_validator
 from mplfinance._arg_validators import _valid_panel_id, _check_for_external_axes
 from mplfinance._arg_validators import _xlim_validator, _mco_validator, _is_marketcolor_object
+from mplfinance._arg_validators import _xticks_validator
 
 from mplfinance._panels import _build_panels
 from mplfinance._panels import _set_ticks_on_bottom_panel_only
@@ -49,6 +50,7 @@ from mplfinance._helpers import _determine_format_string
 from mplfinance._helpers import _list_of_dict
 from mplfinance._helpers import _num_or_seq_of_num
 from mplfinance._helpers import _adjust_color_brightness
+from mplfinance._helpers import _compute_xtick_positions
 
 VALID_PMOVE_TYPES = ['renko', 'pnf']
 
@@ -306,6 +308,11 @@ def _valid_plot_kwargs():
         'xrotation'                 : { 'Default'     : 45,
                                         'Description' : 'Angle (degrees) for x-axis tick labels; 90=vertical',
                                         'Validator'   : lambda value: isinstance(value,(int,float)) },
+
+        'xticks'                    : { 'Default'     : None,
+                                        'Description' : 'x-axis tick positions: int (number of ticks), list of ints'+
+                                                        ' (specific indices), "all", or "monthly" to show all months',
+                                        'Validator'   : lambda value: _xticks_validator(value) },
 
         'axisoff'                   : { 'Default'     : False,
                                         'Description' : '`axisoff=True` means do NOT display any axis.',
@@ -707,12 +714,16 @@ def plot( data, **kwargs ):
         volumeAxes.set_ylim(vymin,vymax)
 
     xrotation = config['xrotation']
+    xtick_positions = _compute_xtick_positions(config['xticks'], dates, xdates)
     if not external_axes_mode:
         _set_ticks_on_bottom_panel_only(panels,formatter,rotation=xrotation,
-                                        xlabel=config['xlabel'])
+                                        xlabel=config['xlabel'],
+                                        xtick_positions=xtick_positions)
     else:
         axA1.tick_params(axis='x',rotation=xrotation)
         axA1.xaxis.set_major_formatter(formatter)
+        if xtick_positions is not None:
+            axA1.set_xticks(xtick_positions)
         axA1.set_xlabel(config['xlabel'])
 
     if config['type'] == 'pnf':
